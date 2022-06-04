@@ -62,7 +62,7 @@ setup(
     install_requires=REQUIRED,
     include_package_data=True,
     entry_points={
-        'console_scripts': ['demucs=demucs.separate:main'],
+        'console_scripts': ['demucs=demucs.separate:cli'],
     },
     license='MIT License',
     classifiers=[

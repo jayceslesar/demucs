@@ -18,40 +18,10 @@ from .audio import AudioFile, convert_audio, save_audio
 from .pretrained import get_model_from_args, add_model_flags, ModelLoadingError
 
 
-def load_track(track, audio_channels, samplerate):
-    errors = {}
-    wav = None
 
-    try:
-        wav = AudioFile(track).read(
-            streams=0,
-            samplerate=samplerate,
-            channels=audio_channels)
-    except FileNotFoundError:
-        errors['ffmpeg'] = 'Ffmpeg is not installed.'
-    except subprocess.CalledProcessError:
-        errors['ffmpeg'] = 'FFmpeg could not read the file.'
-
-    if wav is None:
-        try:
-            wav, sr = ta.load(str(track))
-        except RuntimeError as err:
-            errors['torchaudio'] = err.args[0]
-        else:
-            wav = convert_audio(wav, sr, samplerate, audio_channels)
-
-    if wav is None:
-        print(f"Could not load file {track}. "
-              "Maybe it is not a supported file format? ")
-        for backend, error in errors.items():
-            print(f"When trying to load using {backend}, got the following error: {error}")
-        sys.exit(1)
-    return wav
-
-
-def main():
-    parser = argparse.ArgumentParser("demucs.separate",
-                                     description="Separate the sources for the given tracks")
+def add_arguments(parser):
+    # parser = argparse.ArgumentParser("demucs.separate",
+    #                                  description="Separate the sources for the given tracks")
     parser.add_argument("tracks", nargs='+', type=Path, default=[], help='Path to tracks')
     add_model_flags(parser)
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -108,8 +78,44 @@ def main():
                         help="Number of jobs. This can increase memory usage but will "
                              "be much faster when multiple cores are available.")
 
-    args = parser.parse_args()
 
+def load_track(track, audio_channels, samplerate):
+    errors = {}
+    wav = None
+
+    try:
+        wav = AudioFile(track).read(
+            streams=0,
+            samplerate=samplerate,
+            channels=audio_channels)
+    except FileNotFoundError:
+        errors['ffmpeg'] = 'Ffmpeg is not installed.'
+    except subprocess.CalledProcessError:
+        errors['ffmpeg'] = 'FFmpeg could not read the file.'
+
+    if wav is None:
+        try:
+            wav, sr = ta.load(str(track))
+        except RuntimeError as err:
+            errors['torchaudio'] = err.args[0]
+        else:
+            wav = convert_audio(wav, sr, samplerate, audio_channels)
+
+    if wav is None:
+        print(f"Could not load file {track}. "
+              "Maybe it is not a supported file format? ")
+        for backend, error in errors.items():
+            print(f"When trying to load using {backend}, got the following error: {error}")
+        sys.exit(1)
+    return wav
+
+
+def main(args: argparse.Namespace):
+    """Entry point to separate.
+
+    Args:
+        args: Namespace containing arguments as defined in add_arguments
+    """
     try:
         model = get_model_from_args(args)
     except ModelLoadingError as error:
@@ -184,5 +190,8 @@ def main():
             save_audio(other_stem, stem, **kwargs)
 
 
-if __name__ == "__main__":
-    main()
+def cli(args=None):
+    parser = argparse.ArgumentParser()
+    add_arguments(parser)
+    args = parser.parse_args(args)
+    main(args)
